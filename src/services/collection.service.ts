@@ -110,7 +110,7 @@ export async function runCollection(
         failedCount: 0,
         stopReason: blocked ? 'blocked' : 'error',
         status: 'failed',
-        errorCode: blocked ? 'COLLECTOR_BLOCKED' : 'COLLECTOR_ERROR',
+        errorCode: blocked ? (error as CollectorBlockedError).reason : 'COLLECTOR_ERROR',
         errorMessage: error instanceof Error ? error.message : String(error),
       });
       runs.push({

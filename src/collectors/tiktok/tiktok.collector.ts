@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { PlaywrightCrawler } from 'crawlee';
 import type { SocialCollector } from '../collector.interface.js';
 import type { CollectorInput, CollectorResult, StopReason } from '../collector.types.js';
@@ -6,7 +8,7 @@ import { InCollectionDeduper } from '../../services/dedup.service.js';
 import { CollectorBlockedError } from '../../utils/errors.js';
 import { nowIso } from '../../utils/date.js';
 import { logger } from '../../utils/logger.js';
-import { TIKTOK_SELECTORS, TIKTOK_BLOCK_INDICATORS } from './tiktok.selectors.js';
+import { classifyPageState } from './tiktok.block-detector.js';
 import { parseSearchResultsHtml } from './tiktok.parser.js';
 import { normalizeTikTokPost } from './tiktok.normalizer.js';
 import { buildTikTokSearchUrl } from './tiktok.urls.js';
@@ -88,24 +90,24 @@ export async function runCollectionLoop(input: CollectorInput, loader: BatchLoad
   };
 }
 
-function detectBlock(html: string): string | null {
-  const lower = html.toLowerCase();
-  for (const selector of TIKTOK_BLOCK_INDICATORS.captchaSelectors) {
-    if (html.includes(selector.replace(/^[.#]/, ''))) return 'captcha';
-  }
-  for (const indicator of TIKTOK_BLOCK_INDICATORS.textIndicators) {
-    if (lower.includes(indicator)) return indicator;
-  }
-  return null;
+export interface TikTokCollectorOptions {
+  headless?: boolean;
+  saveDebug?: boolean;
+  channel?: string;
 }
 
 export class TikTokCollector implements SocialCollector {
+  constructor(private readonly options: TikTokCollectorOptions = {}) {}
+
   async collect(input: CollectorInput): Promise<CollectorResult> {
     const pendingBatches: BatchResult[] = [];
     let finished = false;
+    let lastBlockReason: string | null = null;
+    const { headless = true, saveDebug = false, channel } = this.options;
 
     const crawler = new PlaywrightCrawler({
-      headless: true,
+      headless,
+      launchContext: channel ? { launchOptions: { channel } } : undefined,
       maxConcurrency: 1,
       maxRequestRetries: 2,
       navigationTimeoutSecs: 30,
@@ -113,15 +115,25 @@ export class TikTokCollector implements SocialCollector {
       maxRequestsPerMinute: 10,
       requestHandler: async ({ page }) => {
         const html = await page.content();
-        const blockReason = detectBlock(html);
-        if (blockReason) {
-          pendingBatches.push({ type: 'blocked', reason: blockReason });
+        const state = classifyPageState(html, page.url());
+
+        if (state.status !== 'ok') {
+          const reason = state.status.toUpperCase();
+          lastBlockReason = reason;
+          logger.warn({ reason, evidence: state.evidence, url: page.url() }, 'tiktok collector blocked');
+          if (saveDebug) {
+            await saveDebugArtifacts(page, input.query, reason);
+          }
+          pendingBatches.push({ type: 'blocked', reason });
           finished = true;
           return;
         }
 
         const raw = parseSearchResultsHtml(html);
         if (raw.length === 0) {
+          if (saveDebug) {
+            await saveDebugArtifacts(page, input.query, 'EMPTY_RESULTS');
+          }
           pendingBatches.push({ type: 'empty' });
           finished = true;
           return;
@@ -153,11 +165,29 @@ export class TikTokCollector implements SocialCollector {
     try {
       const result = await runCollectionLoop(input, loader);
       if (result.stopReason === 'blocked') {
-        throw new CollectorBlockedError(input.query);
+        throw new CollectorBlockedError(lastBlockReason ?? 'UNKNOWN_BLOCK');
       }
       return result;
     } finally {
       await crawler.teardown().catch(() => undefined);
     }
+  }
+}
+
+async function saveDebugArtifacts(
+  page: { screenshot: (opts: { path: string }) => Promise<unknown>; url: () => string },
+  query: string,
+  reason: string,
+): Promise<void> {
+  try {
+    const dir = join(process.cwd(), 'debug');
+    mkdirSync(dir, { recursive: true });
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const safeQuery = query.replace(/[^a-zA-Z0-9_-]/g, '_');
+    const path = join(dir, `tiktok-${safeQuery}-${reason}-${timestamp}.png`);
+    await page.screenshot({ path });
+    logger.info({ path, reason, url: page.url() }, 'saved debug screenshot');
+  } catch (error) {
+    logger.warn({ error: String(error) }, 'failed to save debug screenshot');
   }
 }

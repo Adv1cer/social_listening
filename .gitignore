@@ -5,3 +5,6 @@ dist/
 *.log
 generated/
 coverage/
+debug/
+storage/
+.browser-profile/
