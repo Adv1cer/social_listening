@@ -1,0 +1,90 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model SocialAuthor {
+  id               String    @id @default(cuid())
+  platform         String
+  platformAuthorId String?
+  username         String
+  displayName      String?
+  profileUrl       String?
+  verified         Boolean?
+  firstSeenAt      DateTime  @default(now())
+  lastSeenAt       DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  posts            SocialPost[]
+
+  @@unique([platform, platformAuthorId])
+  @@index([platform])
+}
+
+model SocialPost {
+  id             String         @id @default(cuid())
+  platform       String
+  platformPostId String
+  url            String
+  authorId       String?
+  author         SocialAuthor?  @relation(fields: [authorId], references: [id])
+  text           String?
+  hashtags       Json           @default("[]")
+  publishedAt    DateTime?
+  firstSeenAt    DateTime       @default(now())
+  lastSeenAt     DateTime       @default(now())
+  rawMetadata    Json?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  metrics        SocialMetric[]
+
+  @@unique([platform, platformPostId])
+  @@index([platform])
+  @@index([publishedAt])
+  @@index([firstSeenAt])
+  @@index([lastSeenAt])
+}
+
+model SocialMetric {
+  id         String     @id @default(cuid())
+  postId     String
+  post       SocialPost @relation(fields: [postId], references: [id])
+  views      Int?
+  likes      Int?
+  comments   Int?
+  shares     Int?
+  saves      Int?
+  capturedAt DateTime   @default(now())
+  createdAt  DateTime   @default(now())
+
+  @@index([postId])
+  @@index([capturedAt])
+}
+
+model CollectionRun {
+  id           String    @id @default(cuid())
+  platform     String
+  queryType    String
+  queryValue   String
+  targetPosts  Int
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+  scannedCount Int       @default(0)
+  foundCount   Int       @default(0)
+  newCount     Int       @default(0)
+  updatedCount Int       @default(0)
+  failedCount  Int       @default(0)
+  stopReason   String?
+  status       String
+  errorCode    String?
+  errorMessage String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([platform])
+  @@index([status])
+}
