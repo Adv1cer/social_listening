@@ -20,3 +20,9 @@ export function parseMetricValue(raw: string | null | undefined): number | null 
   const multiplier = SUFFIX_MULTIPLIERS[suffixPart.toUpperCase()];
   return Math.round(value * multiplier);
 }
+
+export function toNumberOrNull(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}

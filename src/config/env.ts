@@ -16,6 +16,12 @@ const envSchema = z.object({
   DEFAULT_TARGET_POSTS_PER_QUERY: z.coerce.number().int().positive().default(30),
   DEFAULT_MAX_SCROLLS_PER_QUERY: z.coerce.number().int().positive().default(30),
   DEFAULT_MAX_EMPTY_SCROLLS: z.coerce.number().int().positive().default(3),
+  TIKTOK_UTCC_PROFILES: z.string().default(''),
+  TIKTOK_BROWSER_PROFILE_DIR: z.string().default('.browser-profile/tiktok'),
+  COMMENT_MAX_PER_VIDEO: z.coerce.number().int().positive().default(500),
+  REPORT_API_KEY: z.string().default(''),
+  APIFY_TOKEN: z.string().default(''),
+  APIFY_TIKTOK_ACTOR_ID: z.string().default('clockworks~tiktok-hashtag-scraper'),
 });
 
 export interface AppConfig {
@@ -32,6 +38,18 @@ export interface AppConfig {
     targetPostsPerQuery: number;
     maxScrollsPerQuery: number;
     maxEmptyScrolls: number;
+  };
+  tiktok: {
+    utccProfiles: string[];
+    browserProfileDir: string;
+    commentMaxPerVideo: number;
+  };
+  reports: {
+    apiKey: string;
+  };
+  apify: {
+    token: string;
+    tiktokActorId: string;
   };
 }
 
@@ -51,6 +69,18 @@ export function loadEnv(source: NodeJS.ProcessEnv | Record<string, string | unde
       targetPostsPerQuery: parsed.DEFAULT_TARGET_POSTS_PER_QUERY,
       maxScrollsPerQuery: parsed.DEFAULT_MAX_SCROLLS_PER_QUERY,
       maxEmptyScrolls: parsed.DEFAULT_MAX_EMPTY_SCROLLS,
+    },
+    tiktok: {
+      utccProfiles: parsed.TIKTOK_UTCC_PROFILES.split(',').map((v) => v.trim()).filter((v) => v.length > 0),
+      browserProfileDir: parsed.TIKTOK_BROWSER_PROFILE_DIR,
+      commentMaxPerVideo: parsed.COMMENT_MAX_PER_VIDEO,
+    },
+    reports: {
+      apiKey: parsed.REPORT_API_KEY,
+    },
+    apify: {
+      token: parsed.APIFY_TOKEN,
+      tiktokActorId: parsed.APIFY_TIKTOK_ACTOR_ID,
     },
   };
 }

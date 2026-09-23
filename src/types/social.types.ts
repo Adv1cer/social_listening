@@ -1,5 +1,7 @@
 export type Platform = 'tiktok';
 
+export type CollectionSource = 'profile' | 'direct_url' | 'hashtag' | 'keyword';
+
 export interface CollectedAuthor {
   platformAuthorId: string | null;
   username: string;
@@ -26,4 +28,7 @@ export interface CollectedPost {
   author: CollectedAuthor;
   metrics: CollectedMetrics;
   collectedAt: string;
+  collectionSource?: CollectionSource;
+  collectionQuery?: string | null;
+  raw?: Record<string, unknown> | null;
 }

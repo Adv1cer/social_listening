@@ -15,6 +15,9 @@ export type StopReason =
   | 'scroll_limit'
   | 'timeout'
   | 'blocked'
+  | 'captcha'
+  | 'session_expired'
+  | 'incomplete'
   | 'error';
 
 export interface CollectorResult {

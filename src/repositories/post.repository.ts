@@ -17,6 +17,11 @@ export async function upsertPost(
 
   const existing = await prisma.socialPost.findUnique({ where });
 
+  const rawMetadata =
+    post.raw || post.collectionSource
+      ? { ...(post.raw ?? {}), collectionSource: post.collectionSource ?? null, collectionQuery: post.collectionQuery ?? null }
+      : undefined;
+
   const record = await prisma.socialPost.upsert({
     where,
     create: {
@@ -27,6 +32,7 @@ export async function upsertPost(
       text: post.text,
       hashtags: post.hashtags,
       publishedAt: post.publishedAt ? new Date(post.publishedAt) : null,
+      rawMetadata,
       firstSeenAt: now,
       lastSeenAt: now,
     },
@@ -35,6 +41,7 @@ export async function upsertPost(
       authorId: authorRecordId,
       text: post.text,
       hashtags: post.hashtags,
+      rawMetadata,
       lastSeenAt: now,
     },
   });

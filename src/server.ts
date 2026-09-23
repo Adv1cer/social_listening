@@ -8,7 +8,7 @@ const config = loadEnv(process.env);
 const prisma = new PrismaClient({ datasourceUrl: config.databaseUrl });
 const collector = new TikTokCollector();
 
-const app = buildApp({ prisma, collector });
+const app = buildApp({ prisma, collector, config });
 
 app
   .listen({ port: config.port, host: '0.0.0.0' })

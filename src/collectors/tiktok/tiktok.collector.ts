@@ -141,7 +141,8 @@ export class TikTokCollector implements SocialCollector {
 
         const posts = raw
           .map((r) => normalizeTikTokPost(r, nowIso()))
-          .filter((p): p is CollectedPost => p !== null);
+          .filter((p): p is CollectedPost => p !== null)
+          .map((p) => ({ ...p, collectionSource: 'keyword' as const, collectionQuery: input.query }));
         pendingBatches.push({ type: 'posts', posts });
 
         await page.mouse.wheel(0, 2000);
