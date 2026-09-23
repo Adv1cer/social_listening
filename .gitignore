@@ -15,3 +15,6 @@ storage/
 .claude-flow/data/
 .claude-flow/logs/
 .claude-flow/sessions/
+
+# exported TikTok session cookies (secret)
+tiktok-session*.json
