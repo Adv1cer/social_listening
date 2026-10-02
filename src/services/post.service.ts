@@ -47,7 +47,9 @@ export async function listPosts(prisma: PrismaClient, filters: ListPostsFilters)
     orderBy: SORT_MAP[filters.sort],
     take: filters.limit,
     skip: filters.offset,
-    include: { author: true },
+    // rawMetadata is the full TikTok payload (~50KB/post); keep it for GET /posts/:id only.
+    omit: { rawMetadata: true },
+    include: { author: true, metrics: { orderBy: { capturedAt: 'desc' }, take: 1 } },
   });
 }
 
