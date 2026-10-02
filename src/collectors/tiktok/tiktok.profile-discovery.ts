@@ -19,7 +19,7 @@ export class ProfileDiscovery {
   constructor(private readonly page: Page) {}
 
   async discover(username: string, options: ProfileDiscoveryOptions): Promise<ProfileDiscoveryResult> {
-    const { targetVideos, maxScrolls, scrollWaitMs = 2000, selectorTimeoutMs = 15000 } = options;
+    const { targetVideos, maxScrolls, scrollWaitMs = 3000, selectorTimeoutMs = 15000 } = options;
     const url = `https://www.tiktok.com/@${username}`;
 
     await this.page.goto(url, { waitUntil: 'domcontentloaded', timeout: 30000 });
@@ -63,7 +63,9 @@ export class ProfileDiscovery {
 
       if (seen.size >= targetVideos) break;
 
-      await this.page.mouse.wheel(0, 3000);
+      // Jump to the bottom: wheel scrolling in headless never triggered the next
+      // item_list page (stalled at 19); scrollTo loads ~15 more per round (probed 2026-10-02).
+      await this.page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
       await this.page.waitForTimeout(scrollWaitMs);
       scrolls += 1;
     }

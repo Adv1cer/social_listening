@@ -27,6 +27,7 @@ export async function collectProfileRoute(app: FastifyInstance, deps: { prisma: 
           usernames,
           targetPostsPerProfile: parsed.data.targetPostsPerProfile,
           maxScrollsPerProfile: parsed.data.maxScrollsPerProfile,
+          year: parsed.data.year,
         },
         deps.config.tiktok.utccProfiles,
         { headless: deps.config.collector.headless, profileDir: deps.config.tiktok.browserProfileDir },

@@ -6,6 +6,8 @@ import { DirectVideoEnricher } from '../collectors/tiktok/tiktok.video-enricher.
 import { persistCollectedPost } from './post.service.js';
 import { createCollectionRun, finishCollectionRun } from '../repositories/collection-run.repository.js';
 import { AppError } from '../utils/errors.js';
+import { decideYearFilter, nextYearCutoffState } from '../utils/date.js';
+import type { StopReason } from '../collectors/collector.types.js';
 
 export interface ProfileCollectionOptions {
   headless?: boolean;
@@ -29,6 +31,7 @@ export interface CollectFromProfilesInput {
   usernames: string[];
   targetPostsPerProfile: number;
   maxScrollsPerProfile: number;
+  year?: number;
 }
 
 export interface ProfileRunSummary {
@@ -90,14 +93,15 @@ export async function collectFromProfiles(
       let newCount = 0;
       let updatedCount = 0;
       let failedCount = 0;
-      let stopReason = 'no_more_results';
+      let stopReason: StopReason = 'no_more_results';
       let errorCode: string | undefined;
 
       try {
         const discoveryPage = await context.newPage();
         const discovery = new ProfileDiscovery(discoveryPage);
+        // Year filter skips pinned/out-of-year posts, so over-discover; year_cutoff ends it early.
         const discoveryResult = await discovery.discover(username, {
-          targetVideos: input.targetPostsPerProfile,
+          targetVideos: input.year != null ? input.targetPostsPerProfile * 3 : input.targetPostsPerProfile,
           maxScrolls: input.maxScrollsPerProfile,
         });
         await discoveryPage.close();
@@ -111,22 +115,46 @@ export async function collectFromProfiles(
 
           const enrichPage = await context.newPage();
           const enricher = new DirectVideoEnricher(enrichPage);
+          let kept = 0;
+          let olderStreak = 0;
           for (const videoUrl of discoveryResult.videoUrls) {
+            if (kept >= input.targetPostsPerProfile) {
+              stopReason = 'target_reached';
+              break;
+            }
+
             const enriched = await enricher.enrich(videoUrl, 'profile', username);
-            if (enriched.type === 'post') {
-              postsEnriched += 1;
-              try {
-                const persisted = await persistCollectedPost(prisma, enriched.post);
-                if (persisted.created) newCount += 1;
-                else updatedCount += 1;
-              } catch {
-                failedCount += 1;
-              }
-            } else {
+            if (enriched.type !== 'post') {
+              failedCount += 1;
+              continue;
+            }
+
+            postsEnriched += 1;
+            const decision = decideYearFilter(enriched.post.publishedAt, input.year);
+            const yearState = nextYearCutoffState(decision, olderStreak);
+            olderStreak = yearState.olderStreak;
+            if (yearState.cutoff) {
+              stopReason = 'year_cutoff';
+              break;
+            }
+            if (yearState.action === 'skip') continue;
+
+            try {
+              const persisted = await persistCollectedPost(prisma, enriched.post);
+              if (persisted.created) newCount += 1;
+              else updatedCount += 1;
+              kept += 1;
+            } catch {
               failedCount += 1;
             }
           }
           await enrichPage.close();
+
+          if (stopReason !== 'year_cutoff' && kept >= input.targetPostsPerProfile) {
+            stopReason = 'target_reached';
+          } else if (stopReason !== 'year_cutoff' && stopReason !== 'target_reached') {
+            stopReason = 'no_more_results';
+          }
         }
 
         await finishCollectionRun(prisma, runRecord.id, {
@@ -135,7 +163,7 @@ export async function collectFromProfiles(
           newCount,
           updatedCount,
           failedCount,
-          stopReason: stopReason as 'target_reached' | 'no_more_results' | 'blocked',
+          stopReason,
           status: stopReason === 'blocked' ? 'failed' : 'completed',
           errorCode,
         });

@@ -18,6 +18,7 @@ export type StopReason =
   | 'captcha'
   | 'session_expired'
   | 'incomplete'
+  | 'year_cutoff'
   | 'error';
 
 export interface CollectorResult {

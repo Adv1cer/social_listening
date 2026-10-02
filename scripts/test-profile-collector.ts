@@ -20,6 +20,9 @@ async function main() {
     'https://www.tiktok.com/@eventutcc/video/7685345255792692501',
   );
   const target = Number(parseArg('target', '5'));
+  const yearArg = parseArg('year', '');
+  const year = yearArg ? Number(yearArg) : undefined;
+  const maxScrolls = Number(parseArg('max-scrolls', year != null ? '200' : '10'));
 
   try {
     console.log('--- Direct URL enrichment ---');
@@ -29,7 +32,7 @@ async function main() {
     console.log('--- Profile discovery + enrichment ---');
     const profileResults = await collectFromProfiles(
       prisma,
-      { usernames: [username], targetPostsPerProfile: target, maxScrollsPerProfile: 10 },
+      { usernames: [username], targetPostsPerProfile: target, maxScrollsPerProfile: maxScrolls, year },
       [],
       { headless: true, profileDir: config.tiktok.browserProfileDir },
     );

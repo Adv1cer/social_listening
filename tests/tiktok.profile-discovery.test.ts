@@ -20,7 +20,7 @@ function fakePage(opts: {
       evalCall += 1;
       return batch;
     }),
-    mouse: { wheel: vi.fn(async () => undefined) },
+    evaluate: vi.fn(async () => undefined),
     waitForTimeout: vi.fn(async () => undefined),
   } as never;
 }
@@ -82,8 +82,6 @@ describe('ProfileDiscovery', () => {
     const discovery = new ProfileDiscovery(page);
     const result = await discovery.discover('eventutcc', { targetVideos: 50, maxScrolls: 100, scrollWaitMs: 0 });
     expect(result.videoUrls).toHaveLength(1);
-    expect((page as { mouse: { wheel: { mock: { calls: unknown[] } } } }).mouse.wheel.mock.calls.length).toBeLessThan(
-      10,
-    );
+    expect((page as { evaluate: { mock: { calls: unknown[] } } }).evaluate.mock.calls.length).toBeLessThan(10);
   });
 });
